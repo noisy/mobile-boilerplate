@@ -1,0 +1,111 @@
+{
+  "@@locale": "en",
+  "appTitle": "MyApp",
+  "@appTitle": {
+    "description": "The app's name, shown in the task switcher and on the sign-in screen. Usually the same in every language."
+  },
+  "signInSubtitle": "Sign in to keep your data safe on all your devices.",
+  "@signInSubtitle": {
+    "description": "Sign-in screen, under the app name: why signing in is worth it."
+  },
+  "signInWith": "Continue with {provider}",
+  "@signInWith": {
+    "description": "Sign-in screen button. {provider} is a company name that is never translated: Google or Apple.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "Google"
+      }
+    }
+  },
+  "continueWithoutAccount": "Continue without an account",
+  "@continueWithoutAccount": {
+    "description": "Sign-in screen, the last button: use the app anonymously; an account can be linked later on the home screen."
+  },
+  "demoModeNotice": "Demo mode: this build has no Firebase config, so sign-in is only simulated on this device.",
+  "@demoModeNotice": {
+    "description": "Banner on the sign-in screen of developer builds without Firebase. Seen by developers, not store users."
+  },
+  "authFailed": "Something went wrong. Check your connection and try again.",
+  "@authFailed": {
+    "description": "Error under the buttons when signing in, linking or signing out failed."
+  },
+  "homeTitle": "Home",
+  "@homeTitle": {
+    "description": "Top bar of the home screen, the first screen after signing in."
+  },
+  "homeGreeting": "Hi, {name}!",
+  "@homeGreeting": {
+    "description": "Home screen headline for a signed-in user. {name} is the name from their Google or Apple account.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Alex"
+      }
+    }
+  },
+  "homeGreetingAnonymous": "Hi there!",
+  "@homeGreetingAnonymous": {
+    "description": "Home screen headline when the user continued without an account, or the account has no name."
+  },
+  "signedInWith": "Signed in with {providers}",
+  "@signedInWith": {
+    "description": "Home screen, under the greeting. {providers} lists company names, e.g. \"Google\" or \"Google, Apple\".",
+    "placeholders": {
+      "providers": {
+        "type": "String",
+        "example": "Google"
+      }
+    }
+  },
+  "anonymousHint": "You are using the app without an account. Link one to keep your data when you change phones.",
+  "@anonymousHint": {
+    "description": "Home screen card for anonymous users, above the link buttons."
+  },
+  "linkWith": "Link {provider}",
+  "@linkWith": {
+    "description": "Home screen button for anonymous users: attach a Google or Apple account to this user, keeping their data. {provider} is never translated.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "Google"
+      }
+    }
+  },
+  "signOut": "Sign out",
+  "@signOut": {
+    "description": "Home screen button that signs out and returns to the sign-in screen."
+  },
+  "accountTakenTitle": "Account already in use",
+  "@accountTakenTitle": {
+    "description": "Title of the dialog shown when linking finds that the Google or Apple account already belongs to another user."
+  },
+  "accountTakenBody": "This {provider} account already belongs to another user. Switch to it? What you did without an account stays behind.",
+  "@accountTakenBody": {
+    "description": "Body of the account-in-use dialog. {provider} is Google or Apple, never translated.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "Google"
+      }
+    }
+  },
+  "switchAccount": "Switch",
+  "@switchAccount": {
+    "description": "Account-in-use dialog: sign in as the user who owns the account."
+  },
+  "stayOnAccount": "Stay",
+  "@stayOnAccount": {
+    "description": "Account-in-use dialog: close it and keep using the app without an account."
+  },
+  "buildLabel": "Build {label}",
+  "@buildLabel": {
+    "description": "Small text at the bottom of the home screen. {label} is the version, build number and commit, e.g. \"v0.1.0 (42) · 1a2b3c4\".",
+    "placeholders": {
+      "label": {
+        "type": "String",
+        "example": "v0.1.0 (42) · 1a2b3c4"
+      }
+    }
+  }
+}

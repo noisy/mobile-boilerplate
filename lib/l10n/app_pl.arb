@@ -1,0 +1,21 @@
+{
+  "@@locale": "pl",
+  "appTitle": "MyApp",
+  "signInSubtitle": "Zaloguj się, żeby Twoje dane były bezpieczne na wszystkich urządzeniach.",
+  "signInWith": "Kontynuuj z {provider}",
+  "continueWithoutAccount": "Kontynuuj bez konta",
+  "demoModeNotice": "Tryb demo: ta wersja nie ma konfiguracji Firebase, więc logowanie jest tylko symulowane na tym urządzeniu.",
+  "authFailed": "Coś poszło nie tak. Sprawdź połączenie i spróbuj ponownie.",
+  "homeTitle": "Start",
+  "homeGreeting": "Cześć, {name}!",
+  "homeGreetingAnonymous": "Cześć!",
+  "signedInWith": "Zalogowano przez {providers}",
+  "anonymousHint": "Korzystasz z aplikacji bez konta. Połącz konto, żeby zachować dane po zmianie telefonu.",
+  "linkWith": "Połącz z {provider}",
+  "signOut": "Wyloguj się",
+  "accountTakenTitle": "To konto jest już używane",
+  "accountTakenBody": "To konto {provider} należy już do innego użytkownika. Przełączyć się na nie? To, co zrobiono bez konta, zostanie tutaj.",
+  "switchAccount": "Przełącz",
+  "stayOnAccount": "Zostań",
+  "buildLabel": "Wersja {label}"
+}

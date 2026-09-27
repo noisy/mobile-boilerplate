@@ -1,0 +1,17 @@
+name: Set up Flutter
+description: Java 17 and the Flutter version pinned in pubspec.yaml, with caching.
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-java@v6
+      with:
+        distribution: temurin
+        java-version: '17'
+    - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+      with:
+        # environment.flutter in pubspec.yaml: every job and every developer
+        # builds with the same Flutter.
+        flutter-version-file: pubspec.yaml
+        cache: true
+    - run: flutter pub get
+      shell: bash

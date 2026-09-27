@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Full gate before code leaves the machine: format, analyze, all tests.
+source "$(dirname "$0")/_require_flutter.sh"
+exec scripts/check.sh

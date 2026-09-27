@@ -1,0 +1,236 @@
+# Manual releases: Actions -> Release -> Run workflow.
+#
+#   1. Checks          the same gate as CI
+#   2. Android APK     signed with the upload keystore -> 3. GitHub prerelease (main only)
+#   4. iOS             unsigned archive, signed at export by Xcode cloud signing
+#                      through the App Store Connect API key -> IPA artifact,
+#                      TestFlight upload when "testflight" is ticked
+#
+# Version: `version:` in pubspec.yaml. Build number: commit count (+ offset
+# in app.env), the same for both platforms on the same commit.
+# Secrets (names only, set them per README "GitHub secrets"):
+#   Firebase  GOOGLE_SERVICES_JSON_BASE64, GOOGLE_SERVICE_INFO_PLIST_BASE64
+#   Android   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
+#             ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
+#             (+ optional repo variable ANDROID_CERT_SHA256)
+#   iOS       ASC_KEY_ID, ASC_ISSUER_ID, APPLE_TEAM_ID, ASC_KEY_P8_BASE64
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      android:
+        description: 'Build the signed Android APK (published as a GitHub prerelease from main)'
+        type: boolean
+        default: true
+      ios:
+        description: 'Build the iOS IPA (macOS minutes count 10x on private repos)'
+        type: boolean
+        default: false
+      testflight:
+        description: 'Upload the IPA to TestFlight'
+        type: boolean
+        default: false
+      ios_signing:
+        description: 'cloud-export = unsigned archive, signed at export (default); signed-archive = sign during archive too'
+        type: choice
+        default: cloud-export
+        options: [cloud-export, signed-archive]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    name: 1. Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-flutter
+      - run: scripts/check.sh
+
+  build-android:
+    name: 2. Android APK
+    needs: checks
+    if: inputs.android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-flutter
+      - name: Firebase config
+        run: scripts/ci/restore_firebase_config.sh
+        env:
+          GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+      - name: Restore upload keystore
+        run: scripts/ci/restore_signing_key.sh
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      - name: Generate Android project
+        run: scripts/ci/prepare_android.sh
+      - name: Build and verify signed APK
+        run: scripts/ci/build_apk.sh
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_CERT_SHA256: ${{ vars.ANDROID_CERT_SHA256 }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: android-apk
+          path: '*.apk'
+
+  publish-android:
+    name: 3. GitHub prerelease
+    needs: build-android
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v8
+        with:
+          name: android-apk
+      - name: Create GitHub prerelease
+        run: scripts/ci/publish_release.sh
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  build-ios:
+    name: 4. iOS
+    needs: checks
+    if: inputs.ios
+    runs-on: macos-latest
+    timeout-minutes: 45
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # App Store Connect rejects uploads built with an outdated SDK.
+      - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: latest-stable
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version-file: pubspec.yaml
+          cache: true
+
+      - name: Check secrets
+        run: |
+          for name in ASC_KEY_ID ASC_ISSUER_ID APPLE_TEAM_ID; do
+            [ -n "${!name}" ] || { echo "::error::Missing secret $name (see docs/ios-setup.md)"; exit 1; }
+          done
+
+      # The .p8 goes where both xcodebuild (by path) and altool (by search dir) find it.
+      - name: Restore App Store Connect API key
+        env:
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+        run: |
+          [ -n "$ASC_KEY_P8_BASE64" ] || { echo "::error::Missing secret ASC_KEY_P8_BASE64"; exit 1; }
+          mkdir -p ~/.appstoreconnect/private_keys
+          KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          echo "$ASC_KEY_P8_BASE64" | base64 --decode > "$KEY_PATH"
+          chmod 600 "$KEY_PATH"
+          grep -q "BEGIN PRIVATE KEY" "$KEY_PATH" || { echo "::error::ASC_KEY_P8_BASE64 does not decode to a .p8 key"; exit 1; }
+          echo "ASC_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
+
+      - name: Firebase config
+        run: scripts/ci/restore_firebase_config.sh
+        env:
+          GOOGLE_SERVICE_INFO_PLIST_BASE64: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST_BASE64 }}
+
+      - name: Generate and prepare the iOS project
+        run: scripts/ci/prepare_ios.sh
+
+      - name: Archive
+        run: |
+          SIGNING_ARGS=()
+          if [ "${{ inputs.ios_signing }}" = "cloud-export" ]; then
+            SIGNING_ARGS=(CODE_SIGNING_ALLOWED=NO)
+          fi
+          xcodebuild archive \
+            -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/ios/Runner.xcarchive \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            "${SIGNING_ARGS[@]}"
+
+      # Frameworks built unsigned keep the linker's ad-hoc signature, and some
+      # carry a wrong identifier in it. Export re-signs but keeps that
+      # identifier, so App Store upload rejects them. Remove the signatures so
+      # export signs each framework afresh with its bundle id.
+      - name: Drop build signatures from embedded frameworks
+        if: inputs.ios_signing == 'cloud-export'
+        run: |
+          for fw in build/ios/Runner.xcarchive/Products/Applications/Runner.app/Frameworks/*.framework; do
+            [ -d "$fw" ] || continue
+            bin="$fw/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$fw/Info.plist")"
+            codesign --remove-signature "$bin" || true
+            rm -rf "$fw/_CodeSignature"
+          done
+
+      # Cloud signing: Xcode fetches a cloud-managed distribution certificate and an
+      # App Store profile through the API key, so no .p12 or profile lives in secrets.
+      - name: Export signed IPA
+        run: |
+          cat > build/ios/ExportOptions.plist <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>export</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>teamID</key><string>${APPLE_TEAM_ID}</string>
+            <key>uploadSymbols</key><true/>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+          </dict>
+          </plist>
+          PLIST
+          xcodebuild -exportArchive \
+            -archivePath build/ios/Runner.xcarchive \
+            -exportOptionsPlist build/ios/ExportOptions.plist \
+            -exportPath build/ios/ipa \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+          source app.env
+          cp "$(ls build/ios/ipa/*.ipa | head -1)" "$APP_SLUG-$(scripts/ci/build_number.sh).ipa"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ios-ipa
+          path: '*.ipa'
+          retention-days: 7
+
+      - name: Upload to TestFlight
+        if: inputs.testflight
+        run: |
+          xcrun altool --upload-app --type ios \
+            --file "$(ls *.ipa | head -1)" \
+            --apiKey "$ASC_KEY_ID" \
+            --apiIssuer "$ASC_ISSUER_ID"
+
+      - name: Remove API key
+        if: always()
+        run: rm -rf ~/.appstoreconnect/private_keys

@@ -1,0 +1,7 @@
+# App icon for Android, from one 1024x1024 PNG (no transparency).
+# Applied by scripts/ci/prepare_android.sh: dart run flutter_launcher_icons -f <this file>
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/icon/app-icon.png"
+  min_sdk_android: 23

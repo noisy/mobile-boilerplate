@@ -1,0 +1,8 @@
+# App icon for iOS, from one 1024x1024 PNG. App Store icons may not have an
+# alpha channel, so it is removed.
+# Applied by scripts/ci/prepare_ios.sh: dart run flutter_launcher_icons -f <this file>
+flutter_launcher_icons:
+  android: false
+  ios: true
+  remove_alpha_ios: true
+  image_path: "assets/icon/app-icon.png"

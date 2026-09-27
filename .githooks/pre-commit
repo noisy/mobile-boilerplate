@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Fast feedback before each commit: no secrets, formatting and static analysis.
+source "$(dirname "$0")/_require_flutter.sh"
+exec scripts/check.sh --quick

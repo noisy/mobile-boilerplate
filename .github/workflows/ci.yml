@@ -1,0 +1,72 @@
+# Runs on every push. Read top to bottom:
+#
+#   1. Quality       secrets, format, analyze, script tests, rename leaves no trace
+#   2. Tests         unit, widget, flow and architecture tests
+#   3. Screenshots   every screen per device and language, every component (artifact)
+#   4. Web preview   the app (demo sign-in) + component catalog in a browser (artifact)
+#
+# Releases are manual: .github/workflows/release.yml.
+# Every step calls a script in scripts/, the same ones git hooks and humans use.
+name: CI
+
+on:
+  push:
+    paths-ignore: ['**.md']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: 1. Quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-flutter
+      - name: Secrets, format and analyze
+        run: scripts/check.sh --quick
+      - name: Script tests (Firebase config)
+        run: python3 -m unittest discover -s scripts
+      - name: Renaming the app leaves no trace of the old name
+        run: scripts/test_rename.sh
+
+  test:
+    name: 2. Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-flutter
+      - name: Unit, widget, flow and architecture tests
+        run: flutter test -j 2 --exclude-tags screenshots
+
+  screenshots:
+    name: 3. Screenshots
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-flutter
+      - name: Render screens and components
+        run: scripts/screenshots.sh
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: screenshots
+          path: test/screenshots/goldens
+
+  web-preview:
+    name: 4. Web preview
+    needs: [quality]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-flutter
+      - name: Build the app and Widgetbook for the browser
+        run: scripts/ci/build_web_preview.sh
+      - uses: actions/upload-artifact@v7
+        with:
+          name: web-preview
+          path: build/preview
